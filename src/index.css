@@ -57,12 +57,12 @@ body::before,
 body::after {
   content: "";
   position: absolute;
-  width: 500px;
-  height: 500px;
+  width: 320px;
+  height: 320px;
   border-radius: 50%;
   z-index: -1;
-  filter: blur(160px);
-  opacity: 0.12;
+  filter: blur(140px);
+  opacity: 0.1;
   pointer-events: none;
 }
 
@@ -107,6 +107,13 @@ button, input, textarea {
   gap: 20px;
 }
 
+@media (max-width: 480px) {
+  .app-container {
+    padding: 12px 10px;
+    gap: 14px;
+  }
+}
+
 /* Navigation Header */
 .app-header {
   display: flex;
@@ -119,6 +126,13 @@ button, input, textarea {
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-md);
   box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    padding: 10px 14px;
+    border-radius: var(--border-radius-sm);
+  }
 }
 
 .logo-section {
@@ -145,6 +159,16 @@ button, input, textarea {
   -webkit-text-fill-color: transparent;
 }
 
+@media (max-width: 480px) {
+  .logo-text {
+    font-size: 18px;
+  }
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -164,6 +188,15 @@ button, input, textarea {
   color: var(--text-secondary);
 }
 
+@media (max-width: 480px) {
+  .api-key-badge {
+    padding: 6px 10px;
+  }
+  .api-key-badge span {
+    display: none; /* Hide text on extremely small headers to fit layout */
+  }
+}
+
 /* Tab Navigation Bar */
 .tab-navigation {
   display: flex;
@@ -173,6 +206,12 @@ button, input, textarea {
   border-radius: var(--border-radius-md);
   position: relative;
   margin-top: 4px;
+}
+
+@media (max-width: 480px) {
+  .tab-navigation {
+    border-radius: var(--border-radius-sm);
+  }
 }
 
 .tab-button {
@@ -190,6 +229,14 @@ button, input, textarea {
   justify-content: center;
   gap: 8px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 480px) {
+  .tab-button {
+    padding: 10px 8px;
+    font-size: 13px;
+    border-radius: calc(var(--border-radius-sm) - 2px);
+  }
 }
 
 .tab-button:hover {
@@ -238,6 +285,14 @@ button, input, textarea {
   flex: 1;
 }
 
+@media (max-width: 480px) {
+  .panel {
+    padding: 20px 14px;
+    border-radius: var(--border-radius-md);
+    gap: 16px;
+  }
+}
+
 .panel-title {
   font-size: 18px;
   display: flex;
@@ -246,6 +301,13 @@ button, input, textarea {
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 14px;
   color: var(--text-primary);
+}
+
+@media (max-width: 480px) {
+  .panel-title {
+    font-size: 16px;
+    padding-bottom: 10px;
+  }
 }
 
 /* Scan Hero Zone (Main Scan Entry) */
@@ -260,6 +322,13 @@ button, input, textarea {
   background: radial-gradient(circle at center, rgba(124, 58, 237, 0.02) 0%, transparent 70%);
 }
 
+@media (max-width: 480px) {
+  .scan-hero-zone {
+    padding: 30px 10px;
+    gap: 20px;
+  }
+}
+
 .scan-title-group h2 {
   font-size: 24px;
   margin-bottom: 8px;
@@ -268,11 +337,23 @@ button, input, textarea {
   -webkit-text-fill-color: transparent;
 }
 
+@media (max-width: 480px) {
+  .scan-title-group h2 {
+    font-size: 20px;
+  }
+}
+
 .scan-title-group p {
   font-size: 14px;
   color: var(--text-secondary);
   max-width: 440px;
   margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .scan-title-group p {
+    font-size: 12px;
+  }
 }
 
 .action-buttons-group {
@@ -392,6 +473,13 @@ button, input, textarea {
   flex-direction: column;
   align-items: center;
   gap: 20px;
+  width: 100%;
+}
+
+@media (max-width: 480px) {
+  .scan-preview-card {
+    padding: 12px;
+  }
 }
 
 .upload-preview {

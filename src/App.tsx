@@ -71,16 +71,62 @@ const DEFAULT_BOOKS: Book[] = [
 // Helper to filter out system file paths, screenshot names, or irrelevant text from extracted fields
 const cleanExtractedText = (text: string): string => {
   if (!text) return '';
-  
-  // Regex to match typical system file paths, mac temporary folders, screen capture texts, or standard extensions
   const noiseRegex = /(\/var\/folders\/|\/tmp\/|Users\/|screencapture|screencaptureui|스크린샷|screenshot|[\w-]+\.(png|jpg|jpeg|gif|webp|pdf))/i;
-  
-  // If text contains path noise or matches system patterns, treat as resolution failure
   if (noiseRegex.test(text)) {
     return '';
   }
-  
   return text.trim();
+};
+
+// Mobile-friendly Image Resizer to prevent "Payload Too Large" API errors from high-resolution smartphone cameras
+const resizeImage = (file: File): Promise<{ base64: string; preview: string }> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (readerEvent) => {
+      const image = new Image();
+      image.onload = () => {
+        // Limit max dimensions to 1024px to drastically reduce base64 size while preserving AI reading quality
+        const max_size = 1024;
+        let width = image.width;
+        let height = image.height;
+
+        if (width > height) {
+          if (width > max_size) {
+            height *= max_size / width;
+            width = max_size;
+          }
+        } else {
+          if (height > max_size) {
+            width *= max_size / height;
+            height = max_size;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context not available'));
+          return;
+        }
+        
+        ctx.drawImage(image, 0, 0, width, height);
+        
+        // Compress as JPEG with 0.8 quality factor (reduces file size from 5MB to ~250KB)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        const base64 = dataUrl.split(',')[1];
+        
+        resolve({
+          base64,
+          preview: dataUrl
+        });
+      };
+      image.src = readerEvent.target?.result as string;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
 };
 
 function App() {
@@ -99,6 +145,7 @@ function App() {
 
   const [image, setImage] = useState<ImageState | null>(null);
   const [scanning, setScanning] = useState<boolean>(false);
+  const [compressing, setCompressing] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -127,8 +174,8 @@ function App() {
     showToast('OpenRouter API 키가 저장되었습니다.', 'success');
   };
 
-  // Convert File to Base64
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Convert and resize File
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -137,20 +184,22 @@ function App() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = (reader.result as string).split(',')[1];
+    setCompressing(true);
+    try {
+      // Resize to prevent API failures due to oversized payloads in mobile networks
+      const resized = await resizeImage(file);
       setImage({
-        preview: URL.createObjectURL(file),
-        base64: base64String,
-        mimeType: file.type
+        preview: resized.preview,
+        base64: resized.base64,
+        mimeType: 'image/jpeg' // Explicitly set to jpeg as we compressed using toDataURL('image/jpeg')
       });
       setScanResult(null); // Clear previous scan results
-    };
-    reader.onerror = () => {
-      showToast('파일을 읽는 중에 오류가 발생했습니다.', 'error');
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Image compression error:', error);
+      showToast('이미지 최적화 과정에서 오류가 발생했습니다.', 'error');
+    } finally {
+      setCompressing(false);
+    }
   };
 
   // AI Image Recognition via OpenRouter API
@@ -409,7 +458,13 @@ function App() {
         {activeTab === 'scan' ? (
           /* SCAN VIEW */
           <section className="panel" aria-label="책 스캔 및 정보 추출">
-            {!image ? (
+            {compressing ? (
+              /* Image compression/optimization phase */
+              <div className="scan-hero-zone">
+                <RefreshCw size={36} className="spin-icon" style={{ animation: 'spin 2s linear infinite', color: 'var(--accent-primary)' }} />
+                <p style={{ marginTop: '10px', fontSize: '14px', color: 'var(--text-secondary)' }}>모바일 사진 최적화 및 용량 압축 중...</p>
+              </div>
+            ) : !image ? (
               /* Initial First Screen: Large Camera Trigger or Upload */
               <div className="scan-hero-zone">
                 <div className="scan-title-group">
