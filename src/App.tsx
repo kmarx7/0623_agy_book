@@ -5,7 +5,6 @@ import {
   UploadCloud, 
   Trash2, 
   Search, 
-  Key, 
   RefreshCw, 
   FileDown, 
   Check, 
@@ -81,7 +80,6 @@ const cleanExtractedText = (text: string): string => {
 // High-speed image resizer using temporary Object URLs to avoid heavy memory allocation and main-thread blocks.
 const resizeImage = (file: File): Promise<{ base64: string; preview: string }> => {
   return new Promise((resolve, reject) => {
-    // 1. Create a lightweight reference to the file instantly (0ms) instead of reading it as base64 on start
     const objectUrl = URL.createObjectURL(file);
     const image = new Image();
     
@@ -112,14 +110,11 @@ const resizeImage = (file: File): Promise<{ base64: string; preview: string }> =
         return;
       }
       
-      // Draw to downscaled canvas
       ctx.drawImage(image, 0, 0, width, height);
       
-      // 2. Perform base64 encoding ONLY on the small compressed canvas (~100x faster than raw file reader)
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       const base64 = dataUrl.split(',')[1];
       
-      // 3. Clear temporary object URL to free up browser memory instantly
       URL.revokeObjectURL(objectUrl);
       
       resolve({
@@ -141,8 +136,8 @@ function App() {
   // Navigation active tab
   const [activeTab, setActiveTab] = useState<'scan' | 'library'>('scan');
 
-  // State initialization
-  const [apiKey, setApiKey] = useState<string>(() => {
+  // API Key loaded internally via Environment Variables or legacy local storage key (No UI setup input)
+  const [apiKey] = useState<string>(() => {
     return import.meta.env.VITE_OPENROUTER_API_KEY || localStorage.getItem('inktrace_openrouter_key') || '';
   });
   
@@ -158,10 +153,6 @@ function App() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notification, setNotification] = useState<Notification | null>(null);
-  
-  // API key modal state
-  const [showKeyModal, setShowKeyModal] = useState<boolean>(!apiKey);
-  const [modalKeyInput, setModalKeyInput] = useState<string>(apiKey);
 
   // Sync books to localStorage
   useEffect(() => {
@@ -172,14 +163,6 @@ function App() {
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3500);
-  };
-
-  // Save API Key
-  const handleSaveApiKey = () => {
-    localStorage.setItem('inktrace_openrouter_key', modalKeyInput.trim());
-    setApiKey(modalKeyInput.trim());
-    setShowKeyModal(false);
-    showToast('API 연결 키가 저장되었습니다.', 'success');
   };
 
   // Convert and resize File
@@ -212,8 +195,7 @@ function App() {
   // AI Image Recognition via OpenRouter API
   const handleScanImage = async () => {
     if (!apiKey) {
-      setShowKeyModal(true);
-      showToast('책을 스캔하려면 API 설정이 필요합니다.', 'error');
+      showToast('서버 API 설정이 차단되어 있습니다. 환경 변수를 확인해 주세요.', 'error');
       return;
     }
     if (!image) {
@@ -312,7 +294,7 @@ function App() {
       showToast('책 표지 분석이 완료되었습니다. 내용을 확인하고 저장하세요!', 'success');
     } catch (error: any) {
       console.error('Scanning error:', error);
-      showToast('분석 도중 오류가 발생했습니다. API 키가 유효한지 확인해 주세요.', 'error');
+      showToast('분석 도중 오류가 발생했습니다. 이미지나 서버 설정을 확인해 주세요.', 'error');
       setProgress(0);
     } finally {
       setScanning(false);
@@ -423,25 +405,7 @@ function App() {
         </div>
 
         <div className="header-actions">
-          {/* Simplified UI: Settings icon instead of bulky text badge */}
-          <button 
-            className="api-key-badge"
-            style={{ 
-              cursor: 'pointer', 
-              border: '1px solid var(--border-color)', 
-              outline: 'none', 
-              padding: '8px 10px',
-              borderRadius: '8px'
-            }}
-            onClick={() => {
-              setModalKeyInput(apiKey);
-              setShowKeyModal(true);
-            }}
-            title="API 연동 설정"
-          >
-            <Key size={14} style={{ color: apiKey ? 'var(--success)' : 'var(--danger)' }} />
-          </button>
-          
+          {/* Bulky API Badge & Key settings button completely removed from Header */}
           <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '13px' }} onClick={handleExportLibrary} title="내보내기">
             <FileDown size={14} />
             <span className="hidden-xs">백업 다운로드</span>
@@ -736,63 +700,7 @@ function App() {
         )}
       </main>
 
-      {/* API Key Input Modal */}
-      {showKeyModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '17px' }}>
-                <Key size={16} color="var(--accent-primary)" />
-                API 연결 설정
-              </h3>
-              {apiKey && (
-                <button className="modal-close" onClick={() => setShowKeyModal(false)}>&times;</button>
-              )}
-            </div>
-            
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              도서 표지 분석에 필요한 API 키를 설정합니다. 입력된 키는 사용자 브라우저에 안전하게 보관됩니다.
-            </p>
-
-            <div className="form-group">
-              <label htmlFor="modal-key-input">API Key</label>
-              <input 
-                id="modal-key-input"
-                type="password" 
-                placeholder="sk-..." 
-                className="form-control"
-                value={modalKeyInput}
-                onChange={(e) => setModalKeyInput(e.target.value)}
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
-              {apiKey && (
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={() => setShowKeyModal(false)}
-                >
-                  취소
-                </button>
-              )}
-              <button 
-                className="btn btn-primary" 
-                onClick={handleSaveApiKey}
-                disabled={!modalKeyInput.trim()}
-              >
-                저장 및 시작하기
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '6px' }}>
-              <AlertCircle size={14} style={{ flexShrink: 0 }} />
-              <span>
-                API Key가 없으실 경우 별도 계정 발급이 필요합니다.
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* API Key Modal is completely removed */}
 
       {/* Toast Notification */}
       {notification && (
