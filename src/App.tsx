@@ -136,7 +136,7 @@ function App() {
   // Navigation active tab
   const [activeTab, setActiveTab] = useState<'scan' | 'library'>('scan');
 
-  // API Key loaded internally via Environment Variables or legacy local storage key (No UI setup input)
+  // API Key loaded internally via Environment Variables
   const [apiKey] = useState<string>(() => {
     return import.meta.env.VITE_OPENROUTER_API_KEY || localStorage.getItem('inktrace_openrouter_key') || '';
   });
@@ -326,7 +326,7 @@ function App() {
     setScanResult(null);
     setProgress(0);
 
-    showToast(`'${newBook.title}' 도서가 서재에 추가되었습니다.`, 'success');
+    showToast(`'${newBook.title}' 도서가 My Library에 추가되었습니다.`, 'success');
     
     // Smooth navigation switch to Library
     setTimeout(() => {
@@ -400,12 +400,11 @@ function App() {
           </div>
           <div>
             <h1 className="logo-text">InkTrace</h1>
-            <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>AI 도서 정보 스캔 & 내 서재</p>
+            <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>AI Book Scan & My Library</p>
           </div>
         </div>
 
         <div className="header-actions">
-          {/* Bulky API Badge & Key settings button completely removed from Header */}
           <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '13px' }} onClick={handleExportLibrary} title="내보내기">
             <FileDown size={14} />
             <span className="hidden-xs">백업 다운로드</span>
@@ -420,14 +419,14 @@ function App() {
           onClick={() => setActiveTab('scan')}
         >
           <Camera size={16} />
-          <span>책 스캔하기</span>
+          <span>Scan Book</span>
         </button>
         <button 
           className={`tab-button ${activeTab === 'library' ? 'active' : ''}`}
           onClick={() => setActiveTab('library')}
         >
           <BookMarked size={16} />
-          <span>내 서재 보기 ({books.length})</span>
+          <span>My Library ({books.length})</span>
         </button>
       </nav>
 
@@ -633,7 +632,7 @@ function App() {
                 onClick={() => setActiveTab('scan')}
               >
                 <Plus size={15} />
-                <span>책 추가하기</span>
+                <span>Add Book</span>
               </button>
             </div>
 
@@ -699,8 +698,6 @@ function App() {
           </section>
         )}
       </main>
-
-      {/* API Key Modal is completely removed */}
 
       {/* Toast Notification */}
       {notification && (
