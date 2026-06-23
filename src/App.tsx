@@ -12,7 +12,8 @@ import {
   AlertCircle, 
   Info, 
   BookMarked,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 
 interface Book {
@@ -68,6 +69,9 @@ const DEFAULT_BOOKS: Book[] = [
 ];
 
 function App() {
+  // Navigation active tab
+  const [activeTab, setActiveTab] = useState<'scan' | 'library'>('scan');
+
   // State initialization
   const [apiKey, setApiKey] = useState<string>(() => {
     return import.meta.env.VITE_OPENROUTER_API_KEY || localStorage.getItem('inktrace_openrouter_key') || '';
@@ -174,7 +178,6 @@ function App() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          // Using gemini-1.5-flash model through OpenRouter
           "model": "google/gemini-flash-1.5",
           "messages": [
             {
@@ -262,6 +265,11 @@ function App() {
     setProgress(0);
 
     showToast(`'${newBook.title}' 도서가 서재에 추가되었습니다.`, 'success');
+    
+    // Smooth navigation switch to Library
+    setTimeout(() => {
+      setActiveTab('library');
+    }, 400);
   };
 
   // Delete Book
@@ -326,255 +334,313 @@ function App() {
       <header className="app-header">
         <div className="logo-section">
           <div className="logo-icon">
-            <BookOpen size={22} color="#ffffff" />
+            <BookOpen size={20} color="#ffffff" />
           </div>
           <div>
             <h1 className="logo-text">InkTrace</h1>
-            <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>AI 도서 정보 스캔 & 내 서재</p>
+            <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>AI 도서 정보 스캔 & 내 서재</p>
           </div>
         </div>
 
         <div className="header-actions">
           <button 
             className="api-key-badge"
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', border: '1px solid var(--border-color)', outline: 'none' }}
             onClick={() => {
               setModalKeyInput(apiKey);
               setShowKeyModal(true);
             }}
           >
-            <Key size={14} style={{ color: apiKey ? 'var(--success)' : 'var(--danger)' }} />
-            <span>{apiKey ? 'OpenRouter Connected' : 'API Key Required'}</span>
+            <Key size={13} style={{ color: apiKey ? 'var(--success)' : 'var(--danger)' }} />
+            <span style={{ fontSize: '12px' }}>{apiKey ? 'OpenRouter Connected' : 'API Key Required'}</span>
           </button>
           
-          <button className="btn btn-secondary" onClick={handleExportLibrary} title="내보내기">
-            <FileDown size={16} />
-            <span>백업 다운로드</span>
+          <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '13px' }} onClick={handleExportLibrary} title="내보내기">
+            <FileDown size={14} />
+            <span className="hidden-xs">백업 다운로드</span>
           </button>
         </div>
       </header>
 
-      {/* Main Grid */}
-      <main className="main-grid">
-        {/* Left Side: Scan & Result Edit */}
-        <section className="panel" aria-label="책 스캔 및 정보 추출">
-          <h2 className="panel-title">
-            <Camera size={20} color="var(--accent-primary)" />
-            책 사진으로 스캔하기
-          </h2>
+      {/* Segmented Tab Navigation */}
+      <nav className="tab-navigation" aria-label="메인 메뉴">
+        <button 
+          className={`tab-button ${activeTab === 'scan' ? 'active' : ''}`}
+          onClick={() => setActiveTab('scan')}
+        >
+          <Camera size={16} />
+          <span>책 스캔하기</span>
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'library' ? 'active' : ''}`}
+          onClick={() => setActiveTab('library')}
+        >
+          <BookMarked size={16} />
+          <span>내 서재 보기 ({books.length})</span>
+        </button>
+      </nav>
 
-          {/* Upload Area */}
-          {!image ? (
-            <label className="upload-container">
-              <input 
-                type="file" 
-                accept="image/*" 
-                capture="environment" 
-                onChange={handleFileChange}
-                style={{ display: 'none' }} 
-              />
-              <div className="upload-icon-wrapper">
-                <UploadCloud size={32} />
-              </div>
-              <div>
-                <p style={{ fontWeight: '600', fontSize: '15px' }}>책 표지 사진 찍기 또는 업로드</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  스마트폰 카메라로 직접 촬영하거나 이미지 파일을 끌어다 놓으세요.
-                </p>
-              </div>
-            </label>
-          ) : (
-            <div className="preview-container">
-              <img src={image.preview} alt="Book cover preview" className="upload-preview" />
-              <button 
-                className="remove-preview-btn" 
-                onClick={() => { setImage(null); setScanResult(null); setProgress(0); }}
-                title="사진 지우기"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
-
-          {/* Scan Actions */}
-          {image && !scanResult && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {scanning && (
-                <div className="scan-progress-box">
-                  <div style={{ display: 'flex', justifyContent: 'between', fontSize: '13px' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <RefreshCw size={14} className="spin-icon" style={{ animation: 'spin 2s linear infinite' }} />
-                      AI가 이미지를 판독 중입니다...
-                    </span>
-                    <span style={{ marginLeft: 'auto', fontWeight: 'bold' }}>{progress}%</span>
-                  </div>
-                  <div className="progress-bar-container">
-                    <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-                  </div>
+      {/* Main Content Area */}
+      <main className="tab-content" key={activeTab}>
+        {activeTab === 'scan' ? (
+          /* SCAN VIEW */
+          <section className="panel" aria-label="책 스캔 및 정보 추출">
+            {!image ? (
+              /* Initial First Screen: Large Camera Trigger or Upload */
+              <div className="scan-hero-zone">
+                <div className="scan-title-group">
+                  <h2>책 사진 촬영하여 저장하기</h2>
+                  <p>스마트폰 카메라로 책 표지를 직접 찍거나, 보관 중인 이미지 파일을 불러오세요. AI가 도서 정보를 완벽히 해독해 냅니다.</p>
                 </div>
-              )}
-              <button 
-                className="btn btn-primary" 
-                onClick={handleScanImage} 
-                disabled={scanning}
-                style={{ width: '100%' }}
-              >
-                {scanning ? '분석하는 중...' : 'AI로 책 정보 추출하기'}
-              </button>
-            </div>
-          )}
 
-          {/* Scan Results Form for Modification */}
-          {scanResult && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-              <h3 style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Check size={18} color="var(--success)" />
-                추출된 정보 확인 및 수정
-              </h3>
+                <div className="action-buttons-group">
+                  {/* Premium circular camera trigger button */}
+                  <div className="camera-trigger-wrapper">
+                    <label className="camera-trigger-label" htmlFor="camera-shoot-input">
+                      <Camera size={36} />
+                      <span>사진 촬영</span>
+                    </label>
+                    <input 
+                      id="camera-shoot-input"
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment" 
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }} 
+                    />
+                  </div>
 
-              <div className="form-group">
-                <label htmlFor="scan-title">제목</label>
-                <input 
-                  id="scan-title"
-                  type="text" 
-                  className="form-control"
-                  value={scanResult.title}
-                  onChange={(e) => setScanResult({...scanResult, title: e.target.value})}
-                />
-              </div>
+                  <div className="divider-text">또는</div>
 
-              <div className="form-group">
-                <label htmlFor="scan-author">저자</label>
-                <input 
-                  id="scan-author"
-                  type="text" 
-                  className="form-control"
-                  value={scanResult.author}
-                  onChange={(e) => setScanResult({...scanResult, author: e.target.value})}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="form-group">
-                  <label htmlFor="scan-publisher">출판사</label>
+                  {/* Existing Image Upload Option */}
+                  <label className="file-upload-btn-label" htmlFor="file-select-input">
+                    <UploadCloud size={16} />
+                    <span>기존 이미지 올리기</span>
+                  </label>
                   <input 
-                    id="scan-publisher"
-                    type="text" 
-                    className="form-control"
-                    value={scanResult.publisher}
-                    onChange={(e) => setScanResult({...scanResult, publisher: e.target.value})}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="scan-date">출판 연도/일자</label>
-                  <input 
-                    id="scan-date"
-                    type="text" 
-                    className="form-control"
-                    placeholder="예: 2024"
-                    value={scanResult.publishedDate}
-                    onChange={(e) => setScanResult({...scanResult, publishedDate: e.target.value})}
+                    id="file-select-input"
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }} 
                   />
                 </div>
               </div>
+            ) : (
+              /* Image Uploaded: Show preview and scan controls */
+              <div className="scan-preview-card">
+                <h3 className="panel-title" style={{ width: '100%', borderBottom: 'none', paddingBottom: 0 }}>
+                  <Check size={18} color="var(--accent-primary)" />
+                  선택된 이미지 프리뷰
+                </h3>
+                
+                <div className="preview-container">
+                  <img src={image.preview} alt="Book cover preview" className="upload-preview" />
+                  <button 
+                    className="remove-preview-btn" 
+                    onClick={() => { setImage(null); setScanResult(null); setProgress(0); }}
+                    title="사진 지우기"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
 
-              <div className="form-group">
-                <label htmlFor="scan-description">요약/설명</label>
-                <textarea 
-                  id="scan-description"
-                  className="form-control"
-                  value={scanResult.description}
-                  onChange={(e) => setScanResult({...scanResult, description: e.target.value})}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={() => { setScanResult(null); }}
-                >
-                  재시도
-                </button>
-                <button 
-                  className="btn btn-primary" 
-                  onClick={handleSaveBook}
-                >
-                  내 서재에 저장
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Right Side: Saved Library */}
-        <section className="panel" aria-label="저장된 서재">
-          <div className="library-header">
-            <h2 className="panel-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-              <BookMarked size={20} color="var(--accent-secondary)" />
-              내 서재 ({filteredBooks.length})
-            </h2>
-            <div className="search-wrapper">
-              <Search size={16} className="search-icon" />
-              <input 
-                type="text" 
-                placeholder="책 이름, 저자 또는 출판사 검색..." 
-                className="form-control search-input"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Book Card Grid */}
-          <div className="library-grid">
-            {filteredBooks.length > 0 ? (
-              filteredBooks.map((book) => (
-                <article className="book-card" key={book.id}>
-                  <div className="book-card-main">
-                    <BookCover title={book.title} src={book.coverImage} />
-                    <div className="book-info">
-                      <h3 className="book-title" title={book.title}>{book.title}</h3>
-                      <p className="book-author">{book.author}</p>
-                      <p className="book-meta">
-                        {book.publisher && `${book.publisher}`}
-                        {book.publishedDate && ` · ${book.publishedDate}`}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {book.description && (
-                    <p className="book-desc">{book.description}</p>
-                  )}
-
-                  <div className="book-card-actions">
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      등록일: {book.addedAt}
-                    </span>
+                {/* Scan Status & Trigger Button */}
+                {!scanResult && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%', alignItems: 'center' }}>
+                    {scanning && (
+                      <div className="scan-progress-box">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <RefreshCw size={14} className="spin-icon" style={{ animation: 'spin 2s linear infinite' }} />
+                            AI 분석 진행 중...
+                          </span>
+                          <span style={{ marginLeft: 'auto', fontWeight: 'bold' }}>{progress}%</span>
+                        </div>
+                        <div className="progress-bar-container">
+                          <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+                        </div>
+                      </div>
+                    )}
                     <button 
-                      className="delete-btn" 
-                      onClick={() => handleDeleteBook(book.id, book.title)}
-                      title="서재에서 삭제"
+                      className="btn btn-primary" 
+                      onClick={handleScanImage} 
+                      disabled={scanning}
+                      style={{ width: '100%', maxWidth: '320px' }}
                     >
-                      <Trash2 size={15} />
+                      {scanning ? '분석하는 중...' : 'AI로 책 정보 추출하기'}
                     </button>
                   </div>
-                </article>
-              ))
-            ) : (
-              <div className="empty-library">
-                <div className="empty-library-icon">
-                  <Info size={28} />
-                </div>
-                <div>
-                  <p style={{ fontWeight: '600' }}>등록된 도서가 없습니다</p>
-                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    {searchQuery ? '검색어와 일치하는 책이 없습니다.' : '첫 번째 책 사진을 업로드해 스캔을 시작해 보세요!'}
-                  </p>
-                </div>
+                )}
+
+                {/* Scan Results Form for Modification */}
+                {scanResult && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                    <h4 style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600' }}>
+                      <Check size={18} color="var(--success)" />
+                      추출 결과 편집
+                    </h4>
+
+                    <div className="form-group">
+                      <label htmlFor="scan-title">제목</label>
+                      <input 
+                        id="scan-title"
+                        type="text" 
+                        className="form-control"
+                        value={scanResult.title}
+                        onChange={(e) => setScanResult({...scanResult, title: e.target.value})}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="scan-author">저자</label>
+                      <input 
+                        id="scan-author"
+                        type="text" 
+                        className="form-control"
+                        value={scanResult.author}
+                        onChange={(e) => setScanResult({...scanResult, author: e.target.value})}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div className="form-group">
+                        <label htmlFor="scan-publisher">출판사</label>
+                        <input 
+                          id="scan-publisher"
+                          type="text" 
+                          className="form-control"
+                          value={scanResult.publisher}
+                          onChange={(e) => setScanResult({...scanResult, publisher: e.target.value})}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="scan-date">출판 연도/일자</label>
+                        <input 
+                          id="scan-date"
+                          type="text" 
+                          className="form-control"
+                          placeholder="예: 2024"
+                          value={scanResult.publishedDate}
+                          onChange={(e) => setScanResult({...scanResult, publishedDate: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="scan-description">요약/설명</label>
+                      <textarea 
+                        id="scan-description"
+                        className="form-control"
+                        value={scanResult.description}
+                        onChange={(e) => setScanResult({...scanResult, description: e.target.value})}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '6px' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={() => { setScanResult(null); }}
+                      >
+                        재시도
+                      </button>
+                      <button 
+                        className="btn btn-primary" 
+                        onClick={handleSaveBook}
+                      >
+                        내 서재에 저장
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        </section>
+          </section>
+        ) : (
+          /* LIBRARY VIEW */
+          <section className="panel" aria-label="저장된 서재">
+            <div className="library-filters-bar">
+              <div className="search-wrapper">
+                <Search size={16} className="search-icon" />
+                <input 
+                  type="text" 
+                  placeholder="책 이름, 저자 또는 출판사 검색..." 
+                  className="form-control search-input"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <button 
+                className="btn btn-primary" 
+                style={{ padding: '10px 16px', fontSize: '13px' }}
+                onClick={() => setActiveTab('scan')}
+              >
+                <Plus size={15} />
+                <span>책 추가하기</span>
+              </button>
+            </div>
+
+            {/* Book Card Grid */}
+            <div className="library-grid">
+              {filteredBooks.length > 0 ? (
+                filteredBooks.map((book) => (
+                  <article className="book-card" key={book.id}>
+                    <div className="book-card-main">
+                      <BookCover title={book.title} src={book.coverImage} />
+                      <div className="book-info">
+                        <h3 className="book-title" title={book.title}>{book.title}</h3>
+                        <p className="book-author">{book.author}</p>
+                        <p className="book-meta">
+                          {book.publisher && `${book.publisher}`}
+                          {book.publishedDate && ` · ${book.publishedDate}`}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {book.description && (
+                      <p className="book-desc">{book.description}</p>
+                    )}
+
+                    <div className="book-card-actions">
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        등록일: {book.addedAt}
+                      </span>
+                      <button 
+                        className="delete-btn" 
+                        onClick={() => handleDeleteBook(book.id, book.title)}
+                        title="서재에서 삭제"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="empty-library">
+                  <div className="empty-library-icon">
+                    <Info size={26} />
+                  </div>
+                  <div>
+                    <p style={{ fontWeight: '600', fontSize: '15px' }}>등록된 도서가 없습니다</p>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      {searchQuery ? '검색어와 일치하는 책이 없습니다.' : '첫 번째 책 사진을 업로드해 스캔을 시작해 보세요!'}
+                    </p>
+                  </div>
+                  {!searchQuery && (
+                    <button 
+                      className="btn btn-secondary" 
+                      onClick={() => setActiveTab('scan')}
+                      style={{ marginTop: '10px' }}
+                    >
+                      <Camera size={14} />
+                      <span>책 스캔하러 가기</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
       </main>
 
       {/* API Key Input Modal */}
@@ -582,8 +648,8 @@ function App() {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Key size={18} color="var(--accent-primary)" />
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '17px' }}>
+                <Key size={16} color="var(--accent-primary)" />
                 OpenRouter API Key 설정
               </h3>
               {apiKey && (
@@ -639,7 +705,7 @@ function App() {
       {/* Toast Notification */}
       {notification && (
         <div className={`notification ${notification.type}`}>
-          <AlertCircle size={16} />
+          <AlertCircle size={15} />
           <span style={{ fontSize: '13px', fontWeight: '500' }}>{notification.message}</span>
         </div>
       )}
@@ -649,6 +715,11 @@ function App() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @media (max-width: 480px) {
+          .hidden-xs {
+            display: none !important;
+          }
         }
       `}</style>
     </div>
