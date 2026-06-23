@@ -78,14 +78,13 @@ const cleanExtractedText = (text: string): string => {
   return text.trim();
 };
 
-// Mobile-friendly Image Resizer to prevent "Payload Too Large" API errors from high-resolution smartphone cameras
+// Mobile-friendly Image Resizer to prevent API failures due to oversized payloads
 const resizeImage = (file: File): Promise<{ base64: string; preview: string }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (readerEvent) => {
       const image = new Image();
       image.onload = () => {
-        // Limit max dimensions to 1024px to drastically reduce base64 size while preserving AI reading quality
         const max_size = 1024;
         let width = image.width;
         let height = image.height;
@@ -112,8 +111,6 @@ const resizeImage = (file: File): Promise<{ base64: string; preview: string }> =
         }
         
         ctx.drawImage(image, 0, 0, width, height);
-        
-        // Compress as JPEG with 0.8 quality factor (reduces file size from 5MB to ~250KB)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
         const base64 = dataUrl.split(',')[1];
         
@@ -171,7 +168,7 @@ function App() {
     localStorage.setItem('inktrace_openrouter_key', modalKeyInput.trim());
     setApiKey(modalKeyInput.trim());
     setShowKeyModal(false);
-    showToast('OpenRouter API 키가 저장되었습니다.', 'success');
+    showToast('API 연결 키가 저장되었습니다.', 'success');
   };
 
   // Convert and resize File
@@ -186,12 +183,11 @@ function App() {
 
     setCompressing(true);
     try {
-      // Resize to prevent API failures due to oversized payloads in mobile networks
       const resized = await resizeImage(file);
       setImage({
         preview: resized.preview,
         base64: resized.base64,
-        mimeType: 'image/jpeg' // Explicitly set to jpeg as we compressed using toDataURL('image/jpeg')
+        mimeType: 'image/jpeg'
       });
       setScanResult(null); // Clear previous scan results
     } catch (error) {
@@ -206,7 +202,7 @@ function App() {
   const handleScanImage = async () => {
     if (!apiKey) {
       setShowKeyModal(true);
-      showToast('책을 스캔하려면 OpenRouter API 키가 필요합니다.', 'error');
+      showToast('책을 스캔하려면 API 설정이 필요합니다.', 'error');
       return;
     }
     if (!image) {
@@ -416,16 +412,23 @@ function App() {
         </div>
 
         <div className="header-actions">
+          {/* Simplified UI: Settings icon instead of bulky text badge */}
           <button 
             className="api-key-badge"
-            style={{ cursor: 'pointer', border: '1px solid var(--border-color)', outline: 'none' }}
+            style={{ 
+              cursor: 'pointer', 
+              border: '1px solid var(--border-color)', 
+              outline: 'none', 
+              padding: '8px 10px',
+              borderRadius: '8px'
+            }}
             onClick={() => {
               setModalKeyInput(apiKey);
               setShowKeyModal(true);
             }}
+            title="API 연동 설정"
           >
-            <Key size={13} style={{ color: apiKey ? 'var(--success)' : 'var(--danger)' }} />
-            <span style={{ fontSize: '12px' }}>{apiKey ? 'OpenRouter Connected' : 'API Key Required'}</span>
+            <Key size={14} style={{ color: apiKey ? 'var(--success)' : 'var(--danger)' }} />
           </button>
           
           <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '13px' }} onClick={handleExportLibrary} title="내보내기">
@@ -729,7 +732,7 @@ function App() {
             <div className="modal-header">
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '17px' }}>
                 <Key size={16} color="var(--accent-primary)" />
-                OpenRouter API Key 설정
+                API 연결 설정
               </h3>
               {apiKey && (
                 <button className="modal-close" onClick={() => setShowKeyModal(false)}>&times;</button>
@@ -737,16 +740,15 @@ function App() {
             </div>
             
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              이 앱은 책 표지 분석을 위해 OpenRouter의 Google Gemini 1.5 Flash 모델을 이용합니다.
-              사용자 브라우저에 안전하게 저장되며 외부로 유출되지 않습니다.
+              도서 표지 분석에 필요한 API 키를 설정합니다. 입력된 키는 사용자 브라우저에 안전하게 보관됩니다.
             </p>
 
             <div className="form-group">
-              <label htmlFor="modal-key-input">OpenRouter API Key</label>
+              <label htmlFor="modal-key-input">API Key</label>
               <input 
                 id="modal-key-input"
                 type="password" 
-                placeholder="sk-or-v1-..." 
+                placeholder="sk-..." 
                 className="form-control"
                 value={modalKeyInput}
                 onChange={(e) => setModalKeyInput(e.target.value)}
@@ -774,7 +776,7 @@ function App() {
             <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '6px' }}>
               <AlertCircle size={14} style={{ flexShrink: 0 }} />
               <span>
-                API Key는 <a href="https://openrouter.ai/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-secondary)' }}>OpenRouter 홈페이지</a>에서 발급받으실 수 있습니다.
+                API Key가 없으실 경우 별도 계정 발급이 필요합니다.
               </span>
             </div>
           </div>
