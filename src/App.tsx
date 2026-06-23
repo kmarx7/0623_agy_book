@@ -14,7 +14,6 @@ import {
   BookMarked,
   X
 } from 'lucide-react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface Book {
   id: string;
@@ -71,7 +70,7 @@ const DEFAULT_BOOKS: Book[] = [
 function App() {
   // State initialization
   const [apiKey, setApiKey] = useState<string>(() => {
-    return import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem('inktrace_gemini_key') || '';
+    return import.meta.env.VITE_OPENROUTER_API_KEY || localStorage.getItem('inktrace_openrouter_key') || '';
   });
   
   const [books, setBooks] = useState<Book[]>(() => {
@@ -103,10 +102,10 @@ function App() {
 
   // Save API Key
   const handleSaveApiKey = () => {
-    localStorage.setItem('inktrace_gemini_key', modalKeyInput.trim());
+    localStorage.setItem('inktrace_openrouter_key', modalKeyInput.trim());
     setApiKey(modalKeyInput.trim());
     setShowKeyModal(false);
-    showToast('Gemini API 키가 저장되었습니다.', 'success');
+    showToast('OpenRouter API 키가 저장되었습니다.', 'success');
   };
 
   // Convert File to Base64
@@ -135,11 +134,11 @@ function App() {
     reader.readAsDataURL(file);
   };
 
-  // AI Image Recognition via Gemini
+  // AI Image Recognition via OpenRouter API
   const handleScanImage = async () => {
     if (!apiKey) {
       setShowKeyModal(true);
-      showToast('책을 스캔하려면 Gemini API 키가 필요합니다.', 'error');
+      showToast('책을 스캔하려면 OpenRouter API 키가 필요합니다.', 'error');
       return;
     }
     if (!image) {
@@ -148,16 +147,9 @@ function App() {
     }
 
     setScanning(true);
-    setProgress(15);
+    setProgress(20);
 
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      // Using gemini-1.5-flash for rapid and cost-effective image understanding
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
-        generationConfig: { responseMimeType: "application/json" }
-      });
-
       setProgress(40);
 
       const prompt = `이 이미지는 책 표지 사진입니다. 이미지 분석을 통해 책의 정보를 추출해서 아래 JSON 스키마를 만족하는 JSON 형식으로 응답해 주세요. 마크다운 백틱 (\`\`\`json) 기호 없이 순수한 JSON 텍스트로만 응답해야 합니다. 한글 텍스트 추출에 최대한 정확성을 기해주세요.
@@ -173,18 +165,48 @@ function App() {
 
       setProgress(60);
 
-      const result = await model.generateContent([
-        prompt,
-        {
-          inlineData: {
-            data: image.base64,
-            mimeType: image.mimeType
-          }
-        }
-      ]);
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://0623agybookinfo.vercel.app",
+          "X-Title": "InkTrace",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          // Using gemini-1.5-flash model through OpenRouter
+          "model": "google/gemini-flash-1.5",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "text",
+                  "text": prompt
+                },
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": `data:${image.mimeType};base64,${image.base64}`
+                  }
+                }
+              ]
+            }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API response error: ${response.status}`);
+      }
 
       setProgress(85);
-      const responseText = result.response.text().trim();
+      const data = await response.json();
+      const responseText = data.choices?.[0]?.message?.content?.trim();
+
+      if (!responseText) {
+        throw new Error('API returned empty content');
+      }
       
       // Clean up markdown markers if any
       let jsonStr = responseText;
@@ -322,7 +344,7 @@ function App() {
             }}
           >
             <Key size={14} style={{ color: apiKey ? 'var(--success)' : 'var(--danger)' }} />
-            <span>{apiKey ? 'Gemini API Connected' : 'API Key Required'}</span>
+            <span>{apiKey ? 'OpenRouter Connected' : 'API Key Required'}</span>
           </button>
           
           <button className="btn btn-secondary" onClick={handleExportLibrary} title="내보내기">
@@ -562,7 +584,7 @@ function App() {
             <div className="modal-header">
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Key size={18} color="var(--accent-primary)" />
-                Gemini API Key 설정
+                OpenRouter API Key 설정
               </h3>
               {apiKey && (
                 <button className="modal-close" onClick={() => setShowKeyModal(false)}>&times;</button>
@@ -570,16 +592,16 @@ function App() {
             </div>
             
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              이 앱은 책 표지 분석을 위해 Google Gemini 1.5 Flash 모델을 이용합니다.
+              이 앱은 책 표지 분석을 위해 OpenRouter의 Google Gemini 1.5 Flash 모델을 이용합니다.
               사용자 브라우저에 안전하게 저장되며 외부로 유출되지 않습니다.
             </p>
 
             <div className="form-group">
-              <label htmlFor="modal-key-input">Gemini API Key</label>
+              <label htmlFor="modal-key-input">OpenRouter API Key</label>
               <input 
                 id="modal-key-input"
                 type="password" 
-                placeholder="AIzaSy..." 
+                placeholder="sk-or-v1-..." 
                 className="form-control"
                 value={modalKeyInput}
                 onChange={(e) => setModalKeyInput(e.target.value)}
@@ -607,7 +629,7 @@ function App() {
             <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '6px' }}>
               <AlertCircle size={14} style={{ flexShrink: 0 }} />
               <span>
-                API Key는 <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-secondary)' }}>Google AI Studio</a>에서 무료로 발급받으실 수 있습니다.
+                API Key는 <a href="https://openrouter.ai/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-secondary)' }}>OpenRouter 홈페이지</a>에서 발급받으실 수 있습니다.
               </span>
             </div>
           </div>
@@ -634,4 +656,3 @@ function App() {
 }
 
 export default App;
-
