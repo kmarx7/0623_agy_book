@@ -68,6 +68,21 @@ const DEFAULT_BOOKS: Book[] = [
   }
 ];
 
+// Helper to filter out system file paths, screenshot names, or irrelevant text from extracted fields
+const cleanExtractedText = (text: string): string => {
+  if (!text) return '';
+  
+  // Regex to match typical system file paths, mac temporary folders, screen capture texts, or standard extensions
+  const noiseRegex = /(\/var\/folders\/|\/tmp\/|Users\/|screencapture|screencaptureui|스크린샷|screenshot|[\w-]+\.(png|jpg|jpeg|gif|webp|pdf))/i;
+  
+  // If text contains path noise or matches system patterns, treat as resolution failure
+  if (noiseRegex.test(text)) {
+    return '';
+  }
+  
+  return text.trim();
+};
+
 function App() {
   // Navigation active tab
   const [activeTab, setActiveTab] = useState<'scan' | 'library'>('scan');
@@ -158,13 +173,17 @@ function App() {
 
       const prompt = `이 이미지는 책 표지 사진입니다. 이미지 분석을 통해 책의 정보를 추출해서 아래 JSON 스키마를 만족하는 JSON 형식으로 응답해 주세요. 마크다운 백틱 (\`\`\`json) 기호 없이 순수한 JSON 텍스트로만 응답해야 합니다. 한글 텍스트 추출에 최대한 정확성을 기해주세요.
       
+      [필수 주의사항]
+      1. 이미지 안에 책 표지가 아예 없거나, 책 정보가 아닌 맥북 시스템/화면 스크린샷 텍스트, 임시 파일 경로, 브라우저 스크린샷 잔상이 감지될 경우 해당 텍스트를 책 제목이나 정보로 추출하지 말고 반드시 빈 문자열("")로 반환해 주세요.
+      2. 시스템 파일 경로나 스크린샷 파일 이름 패턴(예: /var/folders/..., .png, .jpg 등)이 도서 정보로 들어가지 않도록 철저히 가려주세요.
+      
       JSON Schema:
       {
-        "title": "책 제목 (정확하게 추출)",
-        "author": "저자 이름 (여러 명인 경우 쉼표로 연결)",
-        "publisher": "출판사 이름 (표지에서 찾을 수 없는 경우 알아낼 수 있는 출판사 혹은 빈값)",
-        "publishedDate": "출판 연도/날짜 (예: '2023', 모르는 경우 빈 문자열)",
-        "description": "책의 줄거리 혹은 핵심 내용 요약 (반드시 한국어로 정중하게 2~3문장)"
+        "title": "책 제목 (정확하게 추출, 책 표지가 아니거나 모르면 빈 문자열)",
+        "author": "저자 이름 (여러 명인 경우 쉼표로 연결, 모르면 빈 문자열)",
+        "publisher": "출판사 이름 (모르면 빈 문자열)",
+        "publishedDate": "출판 연도/날짜 (예: '2023', 모르면 빈 문자열)",
+        "description": "책의 줄거리 혹은 핵심 내용 요약 (반드시 한국어로 정중하게 2~3문장, 책 표지가 아니면 빈 문자열)"
       }`;
 
       setProgress(60);
@@ -219,10 +238,15 @@ function App() {
 
       const parsed = JSON.parse(jsonStr);
       
+      // Double defense: filter out system paths on client-side
+      const finalTitle = cleanExtractedText(parsed.title);
+      const finalAuthor = cleanExtractedText(parsed.author);
+      const finalPublisher = cleanExtractedText(parsed.publisher);
+      
       setScanResult({
-        title: parsed.title || '알 수 없는 제목',
-        author: parsed.author || '알 수 없는 저자',
-        publisher: parsed.publisher || '',
+        title: finalTitle || '알 수 없는 제목',
+        author: finalAuthor || '알 수 없는 저자',
+        publisher: finalPublisher || '',
         publishedDate: parsed.publishedDate || '',
         description: parsed.description || '',
         coverImage: image.preview // Hold the scanned image preview
