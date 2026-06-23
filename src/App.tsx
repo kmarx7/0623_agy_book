@@ -71,7 +71,7 @@ const DEFAULT_BOOKS: Book[] = [
 function App() {
   // State initialization
   const [apiKey, setApiKey] = useState<string>(() => {
-    return localStorage.getItem('inktrace_gemini_key') || '';
+    return import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem('inktrace_gemini_key') || '';
   });
   
   const [books, setBooks] = useState<Book[]>(() => {
